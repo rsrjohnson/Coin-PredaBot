@@ -142,6 +142,16 @@ async def candle(ctx,message,number_of_days=1):
     await ctx.send(file=discord.File(filename))
     await ctx.send(blob.public_url)
 
+@bot.command()
+async def gas(ctx,threshold):
+
+  df_gas = pd.read_csv('gas_notes.csv',index_col=0)
+  #n=df_gas.shape[0]  
+  df_gas=df_gas.append({'threshold':[threshold],'user':[ctx.author.id]},ignore_index=True)
+
+  df_gas.to_csv('gas_notes.csv')  
+
+  await ctx.send('received')
 
 
 @bot.command()
