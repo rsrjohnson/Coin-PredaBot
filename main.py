@@ -83,6 +83,7 @@ async def on_ready():
   print('{0.user} is up and running'.format(bot))  
   track_job.start()
   change_status.start()
+  #gas_job.start()
 
 
 
@@ -98,6 +99,14 @@ async def track_job():
     i=0
     dropped=[]
     erase=False
+
+    coins=df_coins['coin'].unique()
+
+    dict_prices={}
+    for c_ in coins:
+      dict_prices[c_]=cg.get_price(ids=c_,
+                                vs_currencies='usd',
+                                include_24hr_change=False)
     
     while i<m:
       row_index=df_coins.index[i]
@@ -107,9 +116,7 @@ async def track_job():
 
       #coin_idg = df_gecko.loc[df_gecko['symbol'] == qry, 'id'].iloc[0]
       coin_idg=df_coins.loc[row_index,'coin']
-      curr_price = cg.get_price(ids=coin_idg,
-                                vs_currencies='usd',
-                                include_24hr_change=False)
+      curr_price = dict_prices[coin_idg]
 
       #dserver=df_coins.loc[i,'server']
       dchannel=df_coins.loc[row_index,'channel']
@@ -141,6 +148,57 @@ async def track_job():
       df_coins.to_csv('coin_notes.csv')
 
 
+@tasks.loop(seconds=30)
+async def gas_job():
+        
+    df_gas = pd.read_csv('gas_notes.csv', index_col=0)
+    m=df_gas.shape[0]
+    i=0
+    dropped=[]
+    erase=False
+    url = "https://etherscan.io/gastracker"
+
+    driver = webdriver.Chrome(options=opts)
+
+    driver.get(url)
+    # this is just to ensure that the page is loaded
+    time.sleep(3)
+
+    html = driver.page_source
+
+    soup = BeautifulSoup(html, "html.parser")
+    gas_low = soup.find('span', {'id': 'spanLowPrice'})
+    gas_avg = soup.find('span', {'id': 'spanAvgPrice'})
+    gas_high = soup.find('span', {'id': 'spanHighPrice'})
+
+    driver.close()
+
+    low = list(gas_low.children)[0].contents[0]
+    avg = list(gas_avg.children)[0]
+    high = list(gas_high.children)[0]
+
+    curr_gas = float(avg)
+
+    while i<m:
+      row_index=df_gas.index[i]
+      target=float(df_gas.loc[row_index,'threshold'])
+      
+      dchannel=df_gas.loc[row_index,'channel']
+      channel = bot.get_channel(dchannel)
+  
+
+      if curr_gas<=target:        
+        await channel.send("ETH Gas reached "+ str(target) + " gwei")       
+        erase=True
+        dropped.append(row_index)      
+
+      i+=1
+
+    if erase:  
+      df_gas=df_gas.drop(dropped)
+      df_gas.to_csv('gas_notes.csv')
+
+
 #Current price command
 @bot.command()
 async def p(ctx, message, currency='usd'):
@@ -160,7 +218,7 @@ async def p(ctx, message, currency='usd'):
     change = round(curr_price[coin_idg][currency + '_24h_change'], 6)
 
     #yest=today-change
-    #percent=round(change/yest*100,2)
+    #percent=round(change/yest*100,6)
 
     coloring = 0xff0000
 
@@ -318,16 +376,15 @@ async def gas(ctx):
 async def trackgas(ctx, threshold):
 
     df_gas = pd.read_csv('gas_notes.csv', index_col=0)
-    ld=[threshold,ctx.message.guild.id,ctx.channel.id,ctx.author.id]
-    df_gas.loc[len(df_gas.index)] = ld
-    #df_gas = df_gas.append(
-    #    {
-    #        'threshold': [threshold],
-    #        'server': [ctx.message.guild.id],
-    #        'channel':[ctx.channel.id],
-    #        'user': [ctx.author.id]
-    #    },
-    #    ignore_index=True)
+    #'server': [ctx.message.guild.id],
+    #df_gas.loc[len(df_gas.index)] = ld
+    df_gas = df_gas.append(
+        {
+            'threshold':threshold,            
+            'channel':ctx.channel.id,
+            'user': ctx.author.id
+        },
+        ignore_index=True)
 
     df_gas.to_csv('gas_notes.csv')
 
@@ -341,12 +398,10 @@ async def test(ctx, arg):
 
 
 
-#keep_alive()
-
+keep_alive()
 
 token_auth = os.environ['TOKEN']
 
 
-bot.loop.create_task(track_job())
+#bot.loop.create_task(track_job())
 bot.run(token_auth)
-
