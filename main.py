@@ -25,7 +25,7 @@ import time
 #import requests
 #import re
 
-#from server_flask import keep_alive
+from server_flask import keep_alive
 
 F_CRED = os.environ['FIREBASE_CRED']
 cred = credentials.Certificate(json.loads(F_CRED))
@@ -58,23 +58,8 @@ intents.guilds = True
 #discord_cl=discord.Client()
 bot = commands.Bot(command_prefix='$')
 
-#Server for the bot
-from flask import Flask
-from threading import Thread
+
 from itertools import cycle
-
-app = Flask('')
-
-@app.route('/')
-def main():
-  return "Predator is online!"
-
-def run():
-  app.run(host="0.0.0.0", port=8000)
-
-def keep_alive():
-  server = Thread(target=run)
-  server.start()
 
 status = cycle(['with Python','with Watching the Markets'])
 
@@ -124,6 +109,10 @@ async def track_job():
       #channel=discord_cl.get_channel(dchannel)
 
       #bot.get_guild(df_coins.loc[i,'server']).get_channel(dchannel)
+
+      #user_id="{:.17f}".format(df_coins.loc[row_index,'user']).rstrip('0').rstrip('.')
+      #user= await bot.fetch_user(int(user_id)+1)
+      #user+" "+
 
       if df_coins.loc[row_index,'below'] and curr_price[coin_idg]['usd']>=target:
         #server = bot.get_server(dserver)
@@ -197,6 +186,12 @@ async def gas_job():
     if erase:  
       df_gas=df_gas.drop(dropped)
       df_gas.to_csv('gas_notes.csv')
+
+
+# @bot.command()
+# async def help(ctx):
+#   ctx.send
+
 
 
 #Current price command
@@ -326,7 +321,8 @@ async def track(ctx,coin,threshold):
     #ld=[coin,threshold,below,ctx.message.guild.id,ctx.channel.id,ctx.author.id]
 
     #df_coins.loc[len(df_coins.index)] = ld
-    
+
+    #"{:.17f}".format(ctx.author.id).rstrip('0')    
 
     df_coins = df_coins.append(
         {   
